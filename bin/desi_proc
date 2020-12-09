@@ -100,7 +100,7 @@ if comm is not None and rank == 0 and args.badamps is not None:
 
 if comm is not None:
     args = comm.bcast(args, root=0)
-    hdr = comm.bcast(hdr, root=0)
+    # hdr = comm.bcast(hdr, root=0)
     camhdr = comm.bcast(camhdr, root=0)
 
 known_obstype = ['SCIENCE', 'ARC', 'FLAT', 'ZERO', 'DARK',
@@ -520,7 +520,12 @@ if ( args.obstype in ['FLAT', 'TESTFLAT', 'SKY', 'TWILIGHT']     )   or \
             cmd += ' -p {}'.format(psffile)
             cmd += ' -o {}'.format(framefile)
             cmd += ' --psferr 0.1'
-
+            cmd += ' --nsubbundles 5'
+            cmd += ' --nwavestep 30'
+            cmd += ' --gpu'
+            cmd += ' --mpi'
+            cmd += ' --regularize 1e-3'
+            
             if args.obstype == 'SCIENCE' or args.obstype == 'SKY' :
                 if rank == 0:
                     log.info('Include barycentric correction')
@@ -538,16 +543,20 @@ if ( args.obstype in ['FLAT', 'TESTFLAT', 'SKY', 'TWILIGHT']     )   or \
         outputs = comm.bcast(outputs, root=0)
 
         #- split communicator by 20 (number of bundles)
-        extract_size = 20
+        extract_size = 1
         if (rank == 0) and (size%extract_size != 0):
             log.warning('MPI size={} should be evenly divisible by {}'.format(
                 size, extract_size))
-
-        extract_group = rank // extract_size
+    
+        extract_group = rank % extract_size
         num_extract_groups = (size + extract_size - 1) // extract_size
-        comm_extract = comm.Split(color=extract_group)
 
-        for i in range(extract_group, len(args.cameras), num_extract_groups):
+        # from gpu_specter.mpi import AsyncIOComm
+        # comm_extract = comm.Split(color=extract_group)
+        # comm_extract = AsyncIOComm(comm)
+        comm_extract = comm
+        
+        for i in range(0, len(args.cameras), 1):
             camera = args.cameras[i]
             if camera in cmds:
                 cmdargs = cmds[camera].split()[1:]
@@ -555,7 +564,7 @@ if ( args.obstype in ['FLAT', 'TESTFLAT', 'SKY', 'TWILIGHT']     )   or \
                 if comm_extract.rank == 0:
                     print('RUNNING: {}'.format(cmds[camera]))
 
-                desispec.scripts.extract.main_mpi(extract_args, comm=comm_extract)
+                desispec.scripts.extract.main_gpu_specter(extract_args, comm=comm_extract)
 
         comm.barrier()
 
