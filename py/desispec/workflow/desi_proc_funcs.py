@@ -446,27 +446,30 @@ def create_desi_proc_batch_script(night, exp, cameras, jobdesc, queue, runtime=N
     nexps = 1
     if not np.isscalar(exp) and type(exp) is not str:
         nexps = len(exp)
-    ncores, nodes, runtime = determine_resources(ncameras, jobdesc.upper(), queue=queue, nexps=nexps, forced_runtime=runtime)
+    # ncores, nodes, runtime = determine_resources(ncameras, jobdesc.upper(), queue=queue, nexps=nexps, forced_runtime=runtime)
+    ncores, nodes, runtime = 32, 1, 30
 
     assert runtime <= 60
 
     with open(scriptfile, 'w') as fx:
         fx.write('#!/bin/bash -l\n\n')
-        fx.write('#SBATCH -C haswell\n')
+        fx.write('#SBATCH -C dgx\n')
         fx.write('#SBATCH -N {}\n'.format(nodes))
-        fx.write('#SBATCH -n {}\n'.format(ncores))
+        fx.write('#SBATCH --gpus-per-node=4\n')
+        fx.write('#SBATCH --ntasks-per-node=32\n')
+        fx.write('#SBATCH --cpus-per-task=2\n')
         fx.write('#SBATCH --qos {}\n'.format(queue))
         if batch_opts is not None:
             fx.write('#SBATCH {}\n'.format(batch_opts))
-        fx.write('#SBATCH --account desi\n')
+        # fx.write('#SBATCH --account desi\n')
         fx.write('#SBATCH --job-name {}\n'.format(jobname))
         fx.write('#SBATCH --output {}/{}-%j.log\n'.format(batchdir, jobname))
         fx.write('#SBATCH --time=00:{:02d}:00\n'.format(runtime))
 
         # - If we are asking for more than half the node, ask for all of it
         # - to avoid memory problems with other people's jobs
-        if ncores > 16:
-            fx.write('#SBATCH --exclusive\n')
+        # if ncores > 16:
+        #     fx.write('#SBATCH --exclusive\n')
 
         fx.write('\n')
 
@@ -521,20 +524,20 @@ def create_desi_proc_batch_script(night, exp, cameras, jobdesc, queue, runtime=N
                 ## Needs to be refactored to write the correct thing given flags ###
                 ####################################################################
                 fx.write('\n# Do steps through skysub at full MPI parallelism\n')
-                srun = 'srun -N {} -n {} -c 2 {} --nofluxcalib'.format(nodes, ncores, cmd)
+                srun = 'srun -N {} -n {} -c 2 --cpu-bind=cores mps-wrapper {}'.format(nodes, ncores, cmd)
                 fx.write('echo Running {}\n'.format(srun))
                 fx.write('{}\n'.format(srun))
-            if jobdesc.lower() in ['science', 'stdstarfit', 'poststdstar']:
-                fx.write('\n# Use less MPI parallelism for fluxcalib MP parallelism\n')
-                fx.write('# This should quickly skip over the steps already done\n')
-                srun = 'srun -N {} -n {} -c 32 {} '.format(nodes, nodes * 2, cmd)
-                fx.write('if [ $? -eq 0 ]; then\n')
-                fx.write('  echo Running {}\n'.format(srun))
-                fx.write('  {}\n'.format(srun))
-                fx.write('else\n')
-                fx.write('  echo FAILED: done at $(date)\n')
-                fx.write('  exit 1\n')
-                fx.write('fi\n')
+            # if jobdesc.lower() in ['science', 'stdstarfit', 'poststdstar']:
+            #     fx.write('\n# Use less MPI parallelism for fluxcalib MP parallelism\n')
+            #     fx.write('# This should quickly skip over the steps already done\n')
+            #     srun = 'srun -N {} -n {} -c 2 --cpu-bind=cores mps-wrapper {} '.format(nodes, 32, cmd)
+            #     fx.write('if [ $? -eq 0 ]; then\n')
+            #     fx.write('  echo Running {}\n'.format(srun))
+            #     fx.write('  {}\n'.format(srun))
+            #     fx.write('else\n')
+            #     fx.write('  echo FAILED: done at $(date)\n')
+            #     fx.write('  exit 1\n')
+            #     fx.write('fi\n')
 
         fx.write('\nif [ $? -eq 0 ]; then\n')
         fx.write('  echo SUCCESS: done at $(date)\n')

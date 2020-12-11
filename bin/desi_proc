@@ -550,21 +550,44 @@ if ( args.obstype in ['FLAT', 'TESTFLAT', 'SKY', 'TWILIGHT']     )   or \
     
         extract_group = rank % extract_size
         num_extract_groups = (size + extract_size - 1) // extract_size
-
-        # from gpu_specter.mpi import AsyncIOComm
         # comm_extract = comm.Split(color=extract_group)
-        # comm_extract = AsyncIOComm(comm)
-        comm_extract = comm
         
-        for i in range(0, len(args.cameras), 1):
-            camera = args.cameras[i]
-            if camera in cmds:
-                cmdargs = cmds[camera].split()[1:]
-                extract_args = desispec.scripts.extract.parse(cmdargs)
-                if comm_extract.rank == 0:
-                    print('RUNNING: {}'.format(cmds[camera]))
+        include_ranks = list(range(22))
+        extract_group = comm.group.Incl(include_ranks)
 
-                desispec.scripts.extract.main_gpu_specter(extract_args, comm=comm_extract)
+        if rank in include_ranks:
+            extract_comm = comm.Create_group(extract_group)
+
+            try:
+                from gpu_specter.mpi import AsyncIOComm
+                comm_extract = AsyncIOComm(extract_comm)
+            except:
+                comm_extract = extract_comm
+
+            # rotating extraction comm?
+            # n = 30
+            # m = 22
+            # f = (n - 1) // (size - m + 1) + 1
+            # assert size >= m
+            # assert (n-1)//f + m - 1 < size
+            # for i in range(0, len(args.cameras), 1):
+            #     offset = i//f
+            #     include_ranks = list(range(offset, offset+m))
+            #     cam_group = comm.group.Incl(include_ranks)
+            #     if rank in include_ranks:
+            #         cam_comm = comm.Create_group(cam_group)
+            #     else:
+            #         continue
+            
+            for i in range(0, len(args.cameras), 1):
+                camera = args.cameras[i]
+                if camera in cmds:
+                    cmdargs = cmds[camera].split()[1:]
+                    extract_args = desispec.scripts.extract.parse(cmdargs)
+                    if comm_extract.rank == 0:
+                        print('RUNNING: {}'.format(cmds[camera]))
+
+                    desispec.scripts.extract.main_gpu_specter(extract_args, comm=comm_extract)
 
         comm.barrier()
 
@@ -857,6 +880,12 @@ if args.obstype in ['SCIENCE',] and \
     starmodels = os.path.join(
             os.getenv('DESI_BASIS_TEMPLATES'), 'stdstar_templates_v2.2.fits')
 
+    import cupy as cp
+
+    device_count = cp.cuda.runtime.getDeviceCount()
+    device_id = rank % device_count
+    cp.cuda.Device(device_id).use()
+
     #- Fit stdstars per spectrograph (not per-camera)
     spectro_nums = sorted(framefiles.keys())
     ## for sp in spectro_nums[rank::size]:
@@ -871,11 +900,16 @@ if args.obstype in ['SCIENCE',] and \
         cmd += " --starmodels {}".format(starmodels)
         cmd += " --outfile {}".format(stdfile)
         cmd += " --delta-color 0.1"
+        cmd += " --ncpu 1"
         if args.maxstdstars is not None:
             cmd += " --maxstdstars {}".format(args.maxstdstars)
 
         inputs = framefiles[sp] + skyfiles[sp] + fiberflatfiles[sp]
         runcmd(cmd, inputs=inputs, outputs=[stdfile])
+
+        # cmdargs = cmd.split()[1:]
+        # stdstars_args = desispec.scripts.stdstars.parse(cmdargs)
+        # desispec.scripts.stdstars.main(stdstars_args, comm=comm)
 
     timer.stop('stdstarfit')
     if comm is not None:
