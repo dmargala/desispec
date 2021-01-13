@@ -552,7 +552,9 @@ if ( args.obstype in ['FLAT', 'TESTFLAT', 'SKY', 'TWILIGHT']     )   or \
         num_extract_groups = (size + extract_size - 1) // extract_size
         # comm_extract = comm.Split(color=extract_group)
         
-        include_ranks = list(range(22))
+        # 5 ranks per GPU, 4 GPUs = 20 ranks for extraction
+        # 2 extra ranks for async io
+        include_ranks = list(range(5*4 + 2))
         extract_group = comm.group.Incl(include_ranks)
 
         if rank in include_ranks:
@@ -880,16 +882,20 @@ if args.obstype in ['SCIENCE',] and \
     starmodels = os.path.join(
             os.getenv('DESI_BASIS_TEMPLATES'), 'stdstar_templates_v2.2.fits')
 
-    import cupy as cp
+    # import cupy as cp
 
-    device_count = cp.cuda.runtime.getDeviceCount()
-    device_id = rank % device_count
-    cp.cuda.Device(device_id).use()
+    # device_count = cp.cuda.runtime.getDeviceCount()
+    # device_id = rank % device_count
+    # cp.cuda.Device(device_id).use()
 
     #- Fit stdstars per spectrograph (not per-camera)
     spectro_nums = sorted(framefiles.keys())
     ## for sp in spectro_nums[rank::size]:
     for i in range(rank, len(spectro_nums), size):
+    # for i in range(rank, len(spectro_nums), device_count):
+    #     if rank >= device_count:
+    #         continue
+
         sp = spectro_nums[i]
 
         stdfile = findfile('stdstars', night, expid, spectrograph=sp)

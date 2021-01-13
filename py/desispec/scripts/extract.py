@@ -225,10 +225,11 @@ def main_gpu_specter(args, comm=None, timing=None):
 
     #- Load inputs
     def read_data():
+        import cupy as cp
         img = io.read_image(args.input)
         image = {
-            'image': img.pix,
-            'ivar': img.ivar*(img.mask==0)
+            'image': cp.array(img.pix),
+            'ivar': cp.array(img.ivar*(img.mask==0))
         }
         if args.gpu:
             import cupy as cp
