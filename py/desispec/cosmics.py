@@ -84,8 +84,11 @@ def reject_cosmic_rays_1d(frame,nsig=3,psferr=0.05) :
             errm=np.sqrt(vm[fiber,i])/tflux[fiber,i]
 
             # profile from resolution matrix
-            r  =  R.data[:,i]
+            r  = R.data[:,i]
             d  = r.size//2
+            if r[d] == 0:
+                log.warn('{}-{} fiber {} wave={} has zero in r {}'.format(frame.meta['EXPID'], frame.meta['CAMERA'], fiber, int(frame.wave[i]), r))
+                continue
             rdrp = 1-r[d+1]/r[d]
             rdrm = 1-r[d-1]/r[d]
             snrp = (rdfpi-rdrp)/errp
