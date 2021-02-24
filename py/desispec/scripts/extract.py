@@ -225,11 +225,10 @@ def main_gpu_specter(args, comm=None, timing=None):
 
     #- Load inputs
     def read_data():
-        import cupy as cp
         img = io.read_image(args.input)
         image = {
-            'image': cp.array(img.pix),
-            'ivar': cp.array(img.ivar*(img.mask==0))
+            'image': img.pix,
+            'ivar': img.ivar*(img.mask==0),
         }
         if args.gpu:
             import cupy as cp
@@ -364,6 +363,7 @@ def main_gpu_specter(args, comm=None, timing=None):
         mask[pixmask_fraction > 0.5] |= specmask.SOMEBADPIX
         mask[pixmask_fraction == 1.0] |= specmask.ALLBADPIX
         mask[chi2pix > 100.0] |= specmask.BAD2DFIT
+        ivar[mask > 0] = 0
 
         #- TODO: what should this be?
         if fibermap is not None:
