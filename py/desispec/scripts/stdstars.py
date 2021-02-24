@@ -25,6 +25,9 @@ from desispec.io.filters import load_legacy_survey_filter, load_gaia_filter
 from desiutil.dust import ext_odonnell,extinction_total_to_selective_ratio, SFDMap
 from desispec.fiberbitmasking import get_fiberbitmasked_frame
 
+import cupy_backends
+import cupy
+
 def parse(options=None):
     parser = argparse.ArgumentParser(description="Fit of standard star spectra in frames.")
     parser.add_argument('--frames', type = str, default = None, required=True, nargs='*',
@@ -648,6 +651,7 @@ def main(args, comm=None) :
             selection.size, stdflux.shape[0]))
 
         # Match unextincted standard stars to data
+<<<<<<< HEAD
         coefficients, redshift[star], chi2dof[star] = match_templates(
             wave, flux, ivar, resolution_data,
             stdwave, stdflux[selection],
@@ -655,6 +659,20 @@ def main(args, comm=None) :
             ncpu=ncpu, z_max=args.z_max, z_res=args.z_res,
             template_error=args.template_error
             )
+=======
+        try:
+            coefficients, redshift[star], chi2dof[star] = match_templates(
+                wave, flux, ivar, resolution_data,
+                stdwave, stdflux[selection],
+                teff[selection], logg[selection], feh[selection],
+                ncpu=args.ncpu, z_max=args.z_max, z_res=args.z_res,
+                template_error=args.template_error
+                )
+        except cupy_backends.cuda.api.driver.CUDADriverError:
+            log.warning(f"CUDADriverError occured during match_templates for star#{star} ({args.outfile})")
+            continue
+            # write error message
+>>>>>>> wip catch cuda error
 
         linear_coefficients[star,selection] = coefficients
 
