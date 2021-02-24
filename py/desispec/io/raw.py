@@ -79,7 +79,7 @@ def read_raw(filename, camera, fibermapfile=None, **kwargs):
     primary_header['NIGHT'] = int(primary_header['NIGHT'])
     header['NIGHT'] = int(header['NIGHT'])
 
-    if primary_header['NIGHT'] != header['NIGHT']:
+    if int(primary_header['NIGHT']) != int(header['NIGHT']):
         msg = 'primary header NIGHT={} != camera header NIGHT={}'.format(
             primary_header['NIGHT'], header['NIGHT'])
         log.error(msg)
