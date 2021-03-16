@@ -651,28 +651,17 @@ def main(args, comm=None) :
             selection.size, stdflux.shape[0]))
 
         # Match unextincted standard stars to data
-<<<<<<< HEAD
-        coefficients, redshift[star], chi2dof[star] = match_templates(
-            wave, flux, ivar, resolution_data,
-            stdwave, stdflux[selection],
-            teff[selection], logg[selection], feh[selection],
-            ncpu=ncpu, z_max=args.z_max, z_res=args.z_res,
-            template_error=args.template_error
-            )
-=======
         try:
             coefficients, redshift[star], chi2dof[star] = match_templates(
                 wave, flux, ivar, resolution_data,
                 stdwave, stdflux[selection],
                 teff[selection], logg[selection], feh[selection],
-                ncpu=args.ncpu, z_max=args.z_max, z_res=args.z_res,
+                ncpu=ncpu, z_max=args.z_max, z_res=args.z_res,
                 template_error=args.template_error
                 )
         except cupy_backends.cuda.api.driver.CUDADriverError:
             log.warning(f"CUDADriverError occured during match_templates for star#{star} ({args.outfile})")
             continue
-            # write error message
->>>>>>> wip catch cuda error
 
         linear_coefficients[star,selection] = coefficients
 
