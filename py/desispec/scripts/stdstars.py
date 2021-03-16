@@ -511,9 +511,32 @@ def main(args, comm=None) :
     model_mags = None
     if rank == 0:
         log.info("computing model mags for %s"%sorted(model_filters.keys()))
-        model_mags = dict()
-        for filter_name in model_filters.keys():
-            model_mags[filter_name] = get_magnitude(stdwave, stdflux, model_filters, filter_name)
+
+        # comptue cache key based on template filename and filter names
+        import hashlib, os, pickle
+        model_filter_names = sorted(model_filters.keys())
+        m = hashlib.md5()
+        m.update(args.starmodels.encode())
+        for filter_name in model_filter_names:
+            m.update(filter_name.encode())
+        cachekey = m.hexdigest()
+        cachefile = f"/tmp/{cachekey}.pickle"
+        # check if cache exists
+        if os.path.exists(cachefile):
+            # read from cache file
+            with open(cachefile, 'rb') as cachehandle:
+                print("using cached result from '%s'" % cachefile)
+                model_mags = pickle.load(cachehandle)
+        else:
+            # couldn't find cache so do the work ourself
+            model_mags = dict()
+            for filter_name in model_filters.keys():
+                model_mags[filter_name] = get_magnitude(stdwave, stdflux, model_filters, filter_name)
+            # write to cache file
+            with open(cachefile, 'wb') as cachehandle:
+                print("saving result to cache '%s'" % cachefile)
+                pickle.dump(model_mags, cachehandle)
+
         log.info("done computing model mags")
     if comm is not None:
         model_mags = comm.bcast(model_mags, root=0)
