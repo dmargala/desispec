@@ -513,6 +513,11 @@ def main(args, comm=None) :
         log.info("computing model mags for %s"%sorted(model_filters.keys()))
 
         # comptue cache key based on template filename and filter names
+        # todo: where to store cache?
+        # todo: include desispec version in cachekey?
+        # todo: add option to ignore existing cache?
+        # todo: default to ignore and require option to use?
+        # todo: race condition? multiple rank 0's will get here when using desi_proc_joint_fit
         import hashlib, os, pickle
         model_filter_names = sorted(model_filters.keys())
         m = hashlib.md5()
